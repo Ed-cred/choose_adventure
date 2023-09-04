@@ -21,8 +21,9 @@ type Option struct {
 }
 
 type handler struct {
-	story map[string]Chapter
-	tmpl  *template.Template
+	story  map[string]Chapter
+	tmpl   *template.Template
+	pathFn func(r *http.Request) string
 }
 
 var defaultHandlerTmpl = `
@@ -94,6 +95,14 @@ func init() {
 	tpl = template.Must(template.New("").Parse(defaultHandlerTmpl))
 }
 
+func NewHandler(s map[string]Chapter, opts ...HandlerOpt) http.Handler {
+	h := handler{story: s, tmpl: tpl, pathFn: defaultPathFn}
+	for _, opt := range opts {
+		opt(&h)
+	}
+	return h
+}
+
 type HandlerOpt func(h *handler)
 
 func WithTemplate(t *template.Template) HandlerOpt {
@@ -102,20 +111,22 @@ func WithTemplate(t *template.Template) HandlerOpt {
 	}
 }
 
-func NewHandler(s map[string]Chapter, opts ...HandlerOpt) http.Handler {
-	h := handler{story: s, tmpl: tpl}
-	for _, opt := range opts {
-		opt(&h)
+func WithPathFn(fn func(r *http.Request) string) HandlerOpt {
+	return func(h *handler) {
+		h.pathFn = fn
 	}
-	return h
 }
 
-func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+func defaultPathFn(r *http.Request) string {
 	path := strings.TrimSpace(r.URL.Path)
 	if path == "" || path == "/" {
 		path = "/intro"
 	}
-	path = path[1:] // gets rid of the slash
+	return path[1:] // gets rid of the slash
+}
+
+func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
+	path := h.pathFn(r)
 	if chapter, ok := h.story[path]; ok {
 		err := h.tmpl.Execute(w, chapter)
 		if err != nil {

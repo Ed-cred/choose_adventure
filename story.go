@@ -117,14 +117,6 @@ func WithPathFn(fn func(r *http.Request) string) HandlerOpt {
 	}
 }
 
-func defaultPathFn(r *http.Request) string {
-	path := strings.TrimSpace(r.URL.Path)
-	if path == "" || path == "/" {
-		path = "/intro"
-	}
-	return path[1:] // gets rid of the slash
-}
-
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	path := h.pathFn(r)
 	if chapter, ok := h.story[path]; ok {
@@ -147,3 +139,12 @@ func JsonStoryFromFile(file *os.File) (map[string]Chapter, error) {
 	}
 	return story, nil
 }
+
+func defaultPathFn(r *http.Request) string {
+	path := strings.TrimSpace(r.URL.Path)
+	if path == "" || path == "/" {
+		path = "/intro"
+	}
+	return path[1:] // gets rid of the slash
+}
+

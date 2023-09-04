@@ -22,7 +22,7 @@ type Option struct {
 
 type handler struct {
 	story map[string]Chapter
-	tmpl     *template.Template
+	tmpl  *template.Template
 }
 
 var defaultHandlerTmpl = `
@@ -88,17 +88,26 @@ var defaultHandlerTmpl = `
 	</body>
 </html>
 `
-var tmpl *template.Template
+var tpl *template.Template
 
 func init() {
-	tmpl = template.Must(template.New("").Parse(defaultHandlerTmpl))
+	tpl = template.Must(template.New("").Parse(defaultHandlerTmpl))
 }
 
-func NewHandler(s map[string]Chapter, t *template.Template) http.Handler {
-	if t == nil {
-		t = tmpl
+type HandlerOpt func(h *handler)
+
+func WithTemplate(t *template.Template) HandlerOpt {
+	return func(h *handler) {
+		h.tmpl = t
 	}
-	return handler{story: s, tmpl: t}
+}
+
+func NewHandler(s map[string]Chapter, opts ...HandlerOpt) http.Handler {
+	h := handler{story: s, tmpl: tpl}
+	for _, opt := range opts {
+		opt(&h)
+	}
+	return h
 }
 
 func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
@@ -108,7 +117,7 @@ func (h handler) ServeHTTP(w http.ResponseWriter, r *http.Request) {
 	}
 	path = path[1:] // gets rid of the slash
 	if chapter, ok := h.story[path]; ok {
-		err := tmpl.Execute(w, chapter)
+		err := h.tmpl.Execute(w, chapter)
 		if err != nil {
 			log.Fatal("could not execute template", err)
 			http.Error(w, "Something went wrong...", http.StatusInternalServerError)
